@@ -1,14 +1,14 @@
 import os
 import cv2
 import torch
+from pathlib import Path
+from PIL import Image
 import numpy as np
 import torch.nn as nn
-from PIL import Image
 from torchvision.io.image import read_image, ImageReadMode
 from einops import rearrange
 from model import Encoder, Decoder, Modal
 from torchvision import transforms
-from pathlib import Path
 
 
 def rgb_y(im):
@@ -64,8 +64,8 @@ def test(dev):
     enc, mod, dec = load(dev)
     ir_folder = 'ir'
     vis_folder = 'vi'
-    data_folder = 'D:/dataset/FusionData/RoadScene/'
-    save_path = './results/RoadScene/'
+    data_folder = 'D:\\dataset\\FusionData\\RoadScene'
+    save_path = '.\\results\\road\\'
 
     os.makedirs(os.path.join(save_path, 'sr'), exist_ok=True)
     os.makedirs(os.path.join(save_path, 'nr'), exist_ok=True)
