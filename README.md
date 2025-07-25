@@ -24,7 +24,7 @@ The fused results will be saved in the ```./results/``` folder
 
 
 # 3. Training
-## 3.1 Model Weights Preparation
+## 3.1 Large Models Preparation
 
 For training, you need to **download the weights of the required large models**.
 
