@@ -26,7 +26,7 @@ class IVTData(Dataset):
 
         ir_folder = ["ir"]       
         vis_folder = ["vi"]
-        text_folder = ["cleaned_text"]
+        text_folder = ["text"]
 
         self.ir_file_list = []
         self.vis_file_list = []
