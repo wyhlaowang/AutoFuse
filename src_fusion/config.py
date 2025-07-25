@@ -7,7 +7,7 @@ parser = argparse.ArgumentParser(description='IVIF_Fusion')
 
 parser.add_argument('--num_workers',
                     type=int,
-                    default=16,
+                    default=8,
                     help='number of threads')
 parser.add_argument('--epochs',
                     type=int,
@@ -35,13 +35,15 @@ parser.add_argument('--betas',
                     help='ADAM beta')
 parser.add_argument('--if_warm_up',
                     type=bool,
-                    default=False,
+                    default=True,
                     help='learning rate warm up during the 1st epoch')   
 parser.add_argument('--save',
                     type=str,
                     default='trial',
                     help='file name to save')
-
+parser.add_argument('--local_rank',
+                    type=int,
+                    help='local gpu id')
 
 args = parser.parse_args()
 current_time = time.strftime('%y%m%d_%H%M%S_')

@@ -5,9 +5,11 @@ import clip
 import random
 import torch
 import torch.nn.functional as F
+import torch.distributed as dist
 from torch.optim import Adam
 from torch.optim.lr_scheduler import MultiStepLR, LambdaLR
-from torch.utils.data import DataLoader
+from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.utils.data import DataLoader, DistributedSampler
 from torchvision import transforms
 from pathlib import Path
 from tqdm.auto import tqdm
@@ -59,17 +61,9 @@ class Trainer(object):
                 args):
         super().__init__()
         self.args = args
-
-        self.tp = 0.5
-        self.lg = 0.2
-        self.patch_select = 6
-        self.data_len = [100000]
-
-        # device
         self.cuda = torch.cuda.is_available()
         self.dev = 'cuda:'+str(GLOBAL_RANK) if self.cuda else 'cpu'
 
-        # clip config
         self.clip_model, _ = clip.load("ViT-B/32")
         self.vgg = VGG()
 
@@ -97,16 +91,24 @@ class Trainer(object):
             self.clip_model.cuda()
             self.vgg.cuda()
 
+        self.enc = DDP(self.enc, device_ids=[args.local_rank], output_device=args.local_rank, find_unused_parameters=False)
+        self.mod = DDP(self.mod, device_ids=[args.local_rank], output_device=args.local_rank, find_unused_parameters=False)
+        self.dec = DDP(self.dec, device_ids=[args.local_rank], output_device=args.local_rank, find_unused_parameters=False)
+
         # Optimizers
         self.optimizer_G = Adam(itertools.chain(self.enc.parameters(),
                                                 self.mod.parameters(),
                                                 self.dec.parameters()),
                                 lr=args.lr, 
                                 betas=args.betas)
+        self.tp = 0.5
+        self.lg = 0.2
+        self.patch_select = 6
+        self.data_len = [40000]
 
         # Learning rate update schedulers
         if self.args.if_warm_up:
-            self.warm_lr_G = LambdaLR(self.optimizer_G, lr_lambda=lambda x:(x+1)/(sum(self.data_len)/self.args.train_batch))
+            self.warm_lr_G = LambdaLR(self.optimizer_G, lr_lambda=lambda x:(x+1)/(sum(self.data_len)/self.args.train_batch/torch.cuda.device_count()))
         self.lr_scheduler_G = MultiStepLR(self.optimizer_G, 
                                             milestones=self.args.lr_mstone, 
                                             gamma=self.args.lr_decay_gamma)
@@ -219,16 +221,20 @@ class Trainer(object):
     def train(self):
         for self.epoch in range(self.args.epochs):
             train_dataset = IVTData(self.prompt[0], self.antonym[0], sample_n=self.data_len)            
+            train_sampler = DistributedSampler(dataset=train_dataset, 
+                                            shuffle=True, 
+                                            drop_last=True)
             train_dataloader = DataLoader(dataset=train_dataset, 
                                             batch_size=self.args.train_batch, 
-                                            shuffle=True,
+                                            sampler=train_sampler,
                                             num_workers=self.args.num_workers,
                                             pin_memory=True,
-                                            drop_last=True)            
+                                            drop_last=True)       
 
             current_time = time.strftime('%y%m%d@%H:%M:%S')
-            print('=== Epoch {:5d} / {:5d} | Lr : {:.4e} | {} | {} ==='
-                .format(self.epoch, self.args.epochs, self.optimizer_G.param_groups[0]['lr'], current_time, self.args.save_dir))
+            if GLOBAL_RANK == 0:
+                print('=== Epoch {:5d} / {:5d} | Lr : {:.4e} | {} | {} ==='
+                    .format(self.epoch, self.args.epochs, self.optimizer_G.param_groups[0]['lr'], current_time, self.args.save_dir))
                 
             tqdm_bar = tqdm(enumerate(train_dataloader), total=len(train_dataloader)) if GLOBAL_RANK == 0 else enumerate(train_dataloader)
 
@@ -279,21 +285,23 @@ class Trainer(object):
                 self.optimizer_G.step() 
 
                 # tqdm update
-                current_lr = self.optimizer_G.param_groups[0]['lr']
-                s = f'Train | Lr: {current_lr:.2e} | gs:{loss_g_static:.2f} | gd:{loss_g_dynamic:.2f} | ps:{loss_p_static:.2f} | pd:{loss_p_dynamic:.2f} | ff:{loss_ff:.2f} | total:{loss:.2f} |'
-                tqdm_bar.set_description(s)
+                if GLOBAL_RANK == 0:
+                    current_lr = self.optimizer_G.param_groups[0]['lr']
+                    s = f'Train | Lr: {current_lr:.2e} | loss:{loss:.2f} |'
+                    tqdm_bar.set_description(s)
 
                 if self.args.if_warm_up and self.epoch == 0:
                     self.warm_lr_G.step() 
                     
             self.lr_scheduler_G.step()
-            self.save()
+            if GLOBAL_RANK == 0:
+                self.save()
 
 
     def save(self):
-        torch.save(self.enc.state_dict(), '{}/enc_{:05d}.pt'.format(self.args.save_dir, self.epoch))
-        torch.save(self.mod.state_dict(), '{}/mod_{:05d}.pt'.format(self.args.save_dir, self.epoch))
-        torch.save(self.dec.state_dict(), '{}/dec_{:05d}.pt'.format(self.args.save_dir, self.epoch))         
+        torch.save(self.enc.module.state_dict(), '{}/enc_{:05d}.pt'.format(self.args.save_dir, self.epoch))
+        torch.save(self.mod.module.state_dict(), '{}/mod_{:05d}.pt'.format(self.args.save_dir, self.epoch))
+        torch.save(self.dec.module.state_dict(), '{}/dec_{:05d}.pt'.format(self.args.save_dir, self.epoch))               
 
 
     def load(self, load_epoch, pt_path):
@@ -312,18 +320,21 @@ class Trainer(object):
 
 
 if __name__ == '__main__':
-    # config
+    dist.init_process_group(backend='nccl')
+    torch.cuda.set_device(args_config.local_rank)
+    GLOBAL_RANK = dist.get_rank()
     args = args_config
-    GLOBAL_RANK = 0
 
-    print('\n\n=== Arguments ===')
-    cnt = 0
-    for key in sorted(vars(args)):
-        print(key, ':',  getattr(args, key), end='  |  ')
-        cnt += 1
-        if (cnt + 1) % 5 == 0:
-            print('')
-    print('\n')
+    if GLOBAL_RANK == 0:
+        print('\n\n=== Arguments ===')
+        cnt = 0
+        for key in sorted(vars(args)):
+            print(key, ':',  getattr(args, key), end='  |  ')
+            cnt += 1
+            if (cnt + 1) % 5 == 0:
+                print('')
+        print('\n')
 
     trainer = Trainer(args)
     trainer.train()
+

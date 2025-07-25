@@ -52,7 +52,7 @@ python ./gen_prompt/gen_data_vi_ir.py
 
 After that, run the following command to train the fusion model:
 ```
-python ./src_fusion/trainer.py
+CUDA_VISIBLE_DEVICES=0,1,2,3 OMP_NUM_THREADS=32 python -m torch.distributed.launch --nproc_per_node=4 --node_rank=0 src_fusion/trainer.py
 ```
 Once the training is complete, the large models and prompts will no longer be required.
 

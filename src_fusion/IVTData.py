@@ -17,7 +17,7 @@ class IVTData(Dataset):
                 im_h=336, 
                 im_w=336, 
                 data_dir=["./your_output_path/"],
-                sample_n=[100000]):
+                sample_n=[40000]):
         self.text = text
         self.antonym = antonym
         self.im_h = im_h
