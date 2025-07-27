@@ -18,7 +18,7 @@ pip install -r requirements.txt
 
 (infrared images in ```ir``` subfolder, visible images in ```vi``` subfolder)
 
-- Run ```python src/test_sr.py```
+- Run ```python src_fusion/test_sr.py```
 
 The fused results will be saved in the ```./results/``` folder
 
