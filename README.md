@@ -1,3 +1,18 @@
+<div align="center">
+
+# AutoFuse：Degradation-Resistant Infrared-Visible Image Fusion with Auto-Generated Textual Objectives and Embedded Contrastive Learning
+
+[![Paper](https://img.shields.io/badge/Paper-IEEE-blue)](https://ieeexplore.ieee.org/document/11514124)
+[![Code](https://img.shields.io/badge/Code-GitHub-black)](https://github.com/wyhlaowang/LDFusion)
+
+[Yuhao Wang](https://github.com/wyhlaowang/AutoFuse) ·
+[Lingjuan Miao](https://github.com/wyhlaowang/AutoFuse) ·
+[Zhiqiang Zhou](https://github.com/bitzhouzq) ·
+[Yajun Qiao](https://github.com/QYJ123/) ·
+[Yixuan Jiao](https://github.com/wyhlaowang/AutoFuse)
+
+</div>
+
 # AutoFuse：Degradation-Resistant Infrared-Visible Image Fusion with Auto-Generated Textual Objectives and Embedded Contrastive Learning
 
 # 1. Create Environment
