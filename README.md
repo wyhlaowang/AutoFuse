@@ -13,8 +13,6 @@
 
 </div>
 
-# AutoFuse：Degradation-Resistant Infrared-Visible Image Fusion with Auto-Generated Textual Objectives and Embedded Contrastive Learning
-
 # 1. Create Environment
 * create conda environment
 ```
